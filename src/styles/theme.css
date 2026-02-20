@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+    /* Main Background */
+    --color-slate-50: #f8fafc;
+    
+    /* Primary Action */
+    --color-indigo-600: #6b7fd7; /* Used for buttons */
+    --color-indigo-700: #5a6ec0;
+    
+    /* Brand */
+    --color-blue-800: #1e40af; /* Logo & Accent */
+    
+    /* Text */
+    --color-slate-900: #101828; /* Headings */
+    --color-slate-600: #4a5565; /* Subtitles/Body */
+    --color-slate-500: #64748b; /* Muted */
+    --color-slate-400: #94a3b8; /* Icons */
+    --color-slate-200: #e2e8f0; /* Borders */
+    
+    /* Input Text */
+    --color-gray-400: #99a1af;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Smooth transitions for all buttons */
+  button, [role="button"], select, input[type="range"] {
+    transition: all 0.15s ease-out;
+  }
+
+  /* Subtle press feedback for buttons */
+  button:active:not(:disabled), [role="button"]:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /* Smooth scrollbars for dark panels */
+  .dark ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  /* GPU-accelerated animations */
+  .animate-in {
+    will-change: transform, opacity;
+  }
+}
