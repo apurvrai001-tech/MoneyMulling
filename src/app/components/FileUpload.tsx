@@ -12,19 +12,7 @@ interface FileUploadProps {
 const MAX_TRANSACTIONS = 300_000;
 const DELIMITERS = [',', '\t', ';', '|'] as const;
 
-// Auto-detect delimiter by counting which one produces the most columns on the header line
-function detectDelimiter(firstLine: string): string {
-  let best = ',';
-  let bestCount = 1;
-  for (const d of DELIMITERS) {
-    const count = firstLine.split(d).length;
-    if (count > bestCount) {
-      bestCount = count;
-      best = d;
-    }
-  }
-  return best;
-}
+// Papa Parse will auto-detect the delimiter
 
 // Helper: detect column keys from a row object
 function detectKeys(row: Record<string, any>) {
@@ -88,7 +76,8 @@ function parseRow(
     newBalanceDestKey?: string;
   }
 ): Transaction | null {
-  const amount = parseFloat(row[amountKey]);
+  const rawAmount = String(row[amountKey] || '').replace(/[^0-9.-]/g, '');
+  const amount = parseFloat(rawAmount);
   if (isNaN(amount)) return null;
 
   const sender = String(row[senderKey] || '').trim();
@@ -154,7 +143,7 @@ function streamParseCsv(
     Papa.parse<Record<string, string>>(source as File, {
       header: true,
       skipEmptyLines: true,
-      ...(delimiter ? { delimiter } : {}),
+      // Let PapaParse auto-detect the delimiter
       step(results, parser) {
         const keepGoing = onRow(results.data);
         if (!keepGoing) {
@@ -168,13 +157,7 @@ function streamParseCsv(
   });
 }
 
-// Read the first line of a file/blob to detect the delimiter
-async function detectFileDelimiter(source: File | Blob): Promise<string> {
-  const slice = source.slice(0, 4096);
-  const text = await slice.text();
-  const firstLine = text.split(/\r?\n/)[0] || '';
-  return detectDelimiter(firstLine);
-}
+// Delimiter detection removed in favor of PapaParse auto-detection
 
 export function FileUpload({ onDataLoaded }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -224,7 +207,6 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
             let headersDetected = false;
             let zipPaySimKeys: Parameters<typeof parseRow>[6] = undefined;
 
-            const zipDelimiter = await detectFileDelimiter(blob);
             await streamParseCsv(blob, (row) => {
               if (!headersDetected) {
                 const keys = detectKeys(row);
@@ -260,7 +242,7 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
               const tx = parseRow(row, senderKey, receiverKey, amountKey, timestampKey, now, zipPaySimKeys);
               if (tx) allTransactions.push(tx);
               return true;
-            }, zipDelimiter);
+            });
 
           } else if (filename.endsWith('.json')) {
             const content = await entry.async('string');
@@ -309,7 +291,6 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
         let hasValidHeaders = true;
         let paySimKeys: Parameters<typeof parseRow>[6] = undefined;
 
-        const delimiter = await detectFileDelimiter(file);
         await streamParseCsv(file, (row) => {
           if (!headersDetected) {
             const keys = detectKeys(row);
@@ -345,7 +326,7 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
           const tx = parseRow(row, senderKey, receiverKey, amountKey, timestampKey, now, paySimKeys);
           if (tx) allTransactions.push(tx);
           return true;
-        }, delimiter);
+        });
 
         if (!hasValidHeaders) {
           throw new Error('Missing required fields: sender (or nameOrig), receiver (or nameDest), amount');
@@ -480,13 +461,10 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
           );
         }
       } else {
-        // Detect delimiter from the first line of pasted text
-        const firstLine = trimmed.split(/\r?\n/)[0] || '';
-        const textDelimiter = detectDelimiter(firstLine);
+        // Let Papa Parse auto-detect the delimiter
         const results = Papa.parse<Record<string, string>>(trimmed, {
           header: true,
           skipEmptyLines: true,
-          delimiter: textDelimiter,
         });
 
         // Check if we got any data (Papa can report minor errors but still parse successfully)
@@ -703,13 +681,18 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
             </button>
           </div>
 
-          <div className="flex-1 h-full z-10 relative">
-            <input
-              type="text"
+          <div className="flex-1 h-[64px] z-10 relative flex items-center">
+            <textarea
               value={inputText}
               onChange={e => setInputText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
-              className="w-full h-full bg-transparent border-none outline-none text-slate-200 font-inter text-[16px] placeholder:text-slate-500"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleAnalyze();
+                }
+              }}
+              className="w-full h-[24px] bg-transparent border-none outline-none text-slate-200 font-inter text-[16px] placeholder:text-slate-500 resize-none overflow-hidden"
+              style={{ lineHeight: '24px' }}
               placeholder={isDragging ? 'Drop file here…' : selectedFile ? `File: ${selectedFile.name}` : 'Paste transaction data (JSON/CSV) or drop file…'}
             />
           </div>
